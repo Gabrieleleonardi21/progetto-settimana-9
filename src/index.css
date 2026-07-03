@@ -1,0 +1,75 @@
+/* ===== Tema base "Netflix" (override di Bootstrap) ===== */
+body {
+  margin: 0;
+  background-color: #141414; /* nero Netflix */
+  color: #ffffff;
+  font-family: 'Helvetica Neue', Arial, sans-serif;
+}
+
+a {
+  text-decoration: none;
+}
+
+/* ===== Navbar ===== */
+.netflix-navbar {
+  background-color: #000000;
+  padding: 0.6rem 1.5rem;
+}
+
+/* Logo NETFLIX in rosso e in grassetto */
+.netflix-brand {
+  color: #e50914 !important;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
+
+/* Avatar profilo: quadratino colorato come su Netflix */
+.profile-avatar {
+  display: inline-block;
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  background: linear-gradient(135deg, #e50914, #b1060f);
+}
+
+.netflix-nav-right {
+  color: #ffffff;
+  cursor: default;
+}
+
+/* ===== Footer ===== */
+.netflix-footer {
+  background-color: #141414;
+  color: #808080;
+  padding: 2.5rem 1.5rem;
+  margin-top: 2rem;
+}
+
+.footer-list {
+  list-style: none;
+  padding: 0;
+  line-height: 2;
+}
+
+.footer-list a {
+  color: #808080;
+  font-size: 0.85rem;
+}
+
+.footer-list a:hover {
+  text-decoration: underline;
+}
+
+.service-code {
+  margin-top: 1rem;
+  background: transparent;
+  border: 1px solid #808080;
+  color: #808080;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.8rem;
+}
+
+.copyright {
+  margin-top: 1rem;
+  font-size: 0.8rem;
+}

@@ -1,0 +1,116 @@
+/* ===== Contenuto principale ===== */
+.main-content {
+  padding: 1.5rem;
+  min-height: 70vh;
+}
+
+/* Intestazione pagina "TV Shows" + select Genres */
+.page-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.page-title {
+  font-size: 1.6rem;
+  margin: 0;
+}
+
+.genres-select {
+  background: #000000;
+  color: #ffffff;
+  border: 1px solid #555555;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.85rem;
+}
+
+/* ===== Galleria ===== */
+.gallery {
+  margin-bottom: 2rem;
+}
+
+.gallery-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-bottom: 0.6rem;
+}
+
+/* Riga di poster scorrevole orizzontalmente, come le righe di Netflix */
+.movie-row {
+  gap: 6px;
+  overflow-x: auto;
+  flex-wrap: nowrap;
+  padding-bottom: 8px;
+}
+
+.movie-card {
+  flex: 0 0 auto;
+  cursor: pointer; /* segnala che la card è cliccabile (apre le recensioni) */
+}
+
+/* Poster in formato verticale/ritratto (~2:3), come i poster originali di OMDB */
+.movie-poster {
+  width: 230px;
+  height: 345px;
+  object-fit: cover;
+  border-radius: 4px;
+  transition: transform 0.2s ease;
+}
+
+/* Zoom al passaggio del mouse */
+.movie-poster:hover {
+  transform: scale(1.05);
+}
+
+/* Fallback quando OMDB non ha il poster (Poster === "N/A") */
+.movie-poster--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 8px;
+  background-color: #333333;
+  color: #cccccc;
+  font-size: 0.8rem;
+}
+
+/* ===== Modal recensioni (tema scuro Netflix) ===== */
+.review-modal-content {
+  background-color: #181818;
+  color: #ffffff;
+}
+
+/* Poster piccolo nella sezione dettagli del film */
+.review-detail-poster {
+  width: 92px;
+  height: 138px;
+  object-fit: cover;
+  border-radius: 4px;
+  flex: 0 0 auto;
+}
+
+.review-list {
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+/* Le righe della lista recensioni trasparenti sul fondo scuro del modal */
+.review-item {
+  background-color: transparent;
+  color: #ffffff;
+  border-color: #333333;
+}
+
+.review-stars {
+  color: #e5b109; /* stelline gialle */
+  white-space: nowrap;
+}
+
+.review-delete {
+  color: #e50914;
+}
+
+.review-sep {
+  border-color: #333333;
+}

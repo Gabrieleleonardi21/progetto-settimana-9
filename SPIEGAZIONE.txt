@@ -1,0 +1,266 @@
+====================================================================
+ NETFLIX IN REACT - SPIEGAZIONE DELLA LOGICA E DELLE FUNZIONALITA'
+====================================================================
+
+Questo file spiega, a parole semplici, come funziona l'applicazione:
+cosa fa ogni file, come "girano" i dati e perche' ho fatto certe scelte.
+E' pensato per chi non ha scritto il codice ma deve capirlo o modificarlo.
+
+
+--------------------------------------------------------------------
+1. IDEA GENERALE
+--------------------------------------------------------------------
+L'app riproduce la home page di Netflix:
+  - una barra in alto (NavBar),
+  - un contenuto centrale con piu' "gallerie" di film,
+  - un footer in basso.
+
+Ogni galleria e' una riga di poster (es. "Trending Now") che rappresenta
+una saga di film (Harry Potter, Lord of the Rings, Star Wars). I poster NON
+sono scritti a mano: vengono scaricati da internet dalle API di OMDB
+(The Open Movie Database) ogni volta che l'app si carica.
+
+Cliccando un poster si apre un MODAL RECENSIONI (progetto progressivo W9):
+mostra i dettagli del film (presi da OMDB) e le recensioni degli utenti,
+che si possono leggere, aggiungere ed eliminare. Le recensioni stanno su un
+secondo backend (striveschool) e richiedono un token "bearer".
+
+Requisito importante del corso: usare i CLASS COMPONENT (codice "legacy"),
+quindi NON sono stati usati gli hook (niente useState / useEffect).
+
+
+--------------------------------------------------------------------
+2. COME "GIRANO" I DATI (flusso completo)
+--------------------------------------------------------------------
+1) L'utente apre la pagina.
+2) main.jsx monta il componente <App/> dentro la pagina HTML.
+3) <App/> disegna NavBar + Footer + una <MovieGallery/> per ogni saga
+   elencata in config.jsx (GALLERIES).
+4) Ogni <MovieGallery/> appena "nasce" (componentDidMount) chiama OMDB
+   chiedendo i film di quella saga.
+5) Mentre aspetta la risposta mostra il Loader (spinner).
+6) Quando la risposta arriva:
+     - se e' andata bene -> mostra i poster (una <MovieCard/> per film);
+     - se c'e' un problema -> mostra un messaggio d'errore con "Riprova".
+
+In pratica ogni galleria e' indipendente: ha il suo caricamento, i suoi
+dati e il suo eventuale errore. Se una fallisce, le altre continuano a
+funzionare.
+
+Flusso del MODAL RECENSIONI (quando clicchi un poster):
+  a) La MovieCard cliccata apre il suo <ReviewModal/> (mette showModal=true).
+  b) All'apertura il modal fa DUE chiamate in parallelo:
+       - a OMDB (il "sito"): GET ?i=<imdbID> per i dettagli del film;
+       - a striveschool (col bearer): GET /comments/<imdbID> per le recensioni.
+  c) Mostra i dettagli + la lista recensioni (o loader/errore).
+  d) Dal form puoi inviare una recensione (POST) o eliminarne una (DELETE):
+     dopo ogni operazione la lista viene ricaricata dal server.
+
+
+--------------------------------------------------------------------
+3. FILE PER FILE
+--------------------------------------------------------------------
+
+>>> src/config.jsx  (la "centralina" dell'app)
+   - OMDB_API_KEY: la chiave personale per usare OMDB. NON e' scritta qui,
+     ma letta dal file .env (import.meta.env.VITE_OMDB_API_KEY) cosi' non
+     finisce su Git. La chiave si ottiene registrandosi su omdbapi.com.
+   - buildSearchUrl(query): helper che costruisce l'URL di RICERCA OMDB (?s=).
+     E' scritto una volta sola qui, cosi' non ripeto stringa e apikey ovunque.
+     Esempio: https://www.omdbapi.com/?apikey=XXXX&s=Harry%20Potter&page=1
+   - buildDetailUrl(imdbID): helper che costruisce l'URL dei DETTAGLI OMDB
+     (?i=<imdbID>). Lo usa il modal recensioni per trama, anno, voto IMDb.
+   - STRIVE_BEARER: il token JWT fornito, letto da .env (VITE_STRIVE_BEARER).
+     NB: NON e' una apikey OMDB, e' un token del backend "striveschool" (le
+     recensioni). Le gallerie NON lo usano: lo usa solo il modal recensioni.
+   - reviewsHeaders(): helper che restituisce gli header comuni a TUTTE le
+     chiamate recensioni: Content-Type JSON + "Authorization: Bearer <token>".
+     Centralizzato cosi' non riscrivo l'header di autenticazione in ogni fetch.
+   - reviewsUrl(idOrElement): helper per l'URL dell'API commenti:
+        reviewsUrl()          -> lista/creazione (POST)
+        reviewsUrl(imdbID)    -> recensioni di quel film (GET, filtra per elementId)
+        reviewsUrl(commentId) -> singolo commento (DELETE)
+   - GALLERIES: l'elenco delle gallerie (titolo sezione + cosa cercare).
+     Aggiungere una galleria = aggiungere una riga a questo array.
+
+>>> .env  /  .env.example
+   - .env contiene i valori veri delle variabili (VITE_OMDB_API_KEY e
+     VITE_STRIVE_BEARER) ed e' ignorato da Git: i segreti restano locali.
+   - .env.example e' il "modello" versionato: mostra QUALI variabili
+     servono, senza i valori. Chi clona il progetto lo copia in .env.
+   - Nota: Vite legge il .env solo all'avvio, quindi dopo averlo
+     modificato bisogna riavviare "npm run dev".
+
+>>> src/main.jsx  (punto di ingresso)
+   - Importa il CSS di Bootstrap PRIMA dei nostri stili (cosi' i nostri
+     colori "vincono" e sovrascrivono quelli di Bootstrap).
+   - Monta <App/> nel <div id="root"> della pagina.
+
+>>> src/App.jsx  (componente radice)
+   - Mette insieme i pezzi: <NavBar/>, il contenuto e <Footer/>.
+   - Genera le gallerie con GALLERIES.map(...): una <MovieGallery/> per
+     ogni voce, passando "title" e "query" tramite le props.
+   - Contiene anche l'intestazione "TV Shows" con la select "Genres".
+
+>>> src/components/NavBar.jsx
+   - La barra in alto: logo NETFLIX rosso, i link (Home, TV Shows, Movies,
+     Recently Added, My List) e le icone a destra (ricerca, KIDS, campanello,
+     avatar profilo).
+   - I link sono in un array (NAV_LINKS) e disegnati con un map, per non
+     ripetere lo stesso codice 5 volte.
+   - Usa i componenti Navbar/Nav di react-bootstrap: gratis ottengo anche
+     il menu "hamburger" responsive su schermi piccoli.
+
+>>> src/components/Footer.jsx
+   - Il footer con le 4 colonne di link, il bottone "Service Code" e il
+     copyright, come su Netflix.
+   - I link sono in un array di array (FOOTER_COLUMNS) e disegnati con un
+     doppio map: zero markup ripetuto.
+
+>>> src/components/MovieGallery.jsx  (IL CUORE DELL'APP)
+   Questo e' l'unico componente con uno STATO, perche' deve ricordare cosa
+   sta succedendo. Lo stato ha 3 informazioni:
+        movies  -> l'elenco dei film ricevuti (all'inizio vuoto)
+        loading -> true mentre sta scaricando
+        error   -> testo dell'errore (vuoto se tutto ok)
+
+   componentDidMount(): metodo "di ciclo di vita" di React. Viene eseguito
+   UNA volta sola, subito dopo che il componente compare a schermo. E' il
+   posto giusto (con i class component) per lanciare il fetch iniziale.
+   E' l'equivalente "legacy" di useEffect(..., []).
+
+   fetchMovies(): la funzione che scarica i dati. Passi:
+        1. Mette loading = true e azzera l'errore.
+        2. Controlla che la apikey sia stata configurata: se manca, mostra
+           subito un messaggio chiaro invece di fare una chiamata inutile.
+        3. Fa la fetch verso OMDB (await) e legge subito il JSON.
+        4. OMDB, quando qualcosa non va (apikey errata o nessun risultato),
+           risponde con { Response: "False", Error: "..." } E METTE l'errore
+           nel corpo JSON anche quando lo status HTTP e' 401. Per questo
+           controllo PRIMA data.Response: cosi' mostro il messaggio esatto
+           di OMDB (es. "Invalid API key!") invece di un generico "401".
+        5. Solo dopo controllo response.ok, per intercettare altri problemi
+           HTTP che non seguono il formato di OMDB (fetch non lancia da solo
+           sugli errori HTTP, va controllato a mano).
+        6. IMPORTANTE: l'elenco dei film NON e' la risposta stessa, ma sta
+           dentro la proprieta' "Search" (data.Search). E' scritto anche
+           nelle slide del progetto. Salvo quell'array in movies.
+        7. Tutto e' dentro try/catch: qualsiasi problema (rete, JSON, API)
+           viene catturato e mostrato all'utente in "error".
+
+   handleRetry(): richiama fetchMovies(). E' scritta come arrow function
+   (class field) cosi' "this" resta legato al componente anche quando la
+   passo al bottone "Riprova" del componente ErrorAlert.
+
+   renderContent(): decide COSA mostrare in base allo stato:
+        - se loading  -> il <Loader/>
+        - se error    -> l'<ErrorAlert/>
+        - altrimenti  -> la riga di <MovieCard/> (una per film).
+     Ho usato tre "if" con return anticipato invece degli operatori ternari,
+     per tenere il codice piu' leggibile.
+
+>>> src/components/MovieCard.jsx
+   - Mostra il poster di un singolo film (l'immagine).
+   - A volte OMDB non ha il poster e restituisce Poster === "N/A": in quel
+     caso, invece dell'immagine rotta, mostro un riquadro grigio con il
+     titolo del film.
+   - E' CLICCABILE: ha un piccolo stato locale (showModal) e al click apre
+     il proprio <ReviewModal/>. Il modal resta sempre montato ma parte
+     chiuso; openModal/closeModal ne cambiano solo la visibilita'.
+
+>>> src/components/ReviewModal.jsx  (IL MODAL RECENSIONI - progetto W9)
+   Finestra che si sovrappone alla pagina (Modal di react-bootstrap) con i
+   dettagli del film e le sue recensioni. Ha uno stato ricco:
+        reviews    -> le recensioni ricevute
+        loading    -> sto caricando le recensioni?
+        error      -> errore di caricamento
+        details    -> dettagli del film presi da OMDB (opzionali)
+        comment    -> testo del form (input controllato)
+        rate       -> voto scelto nel form (1..5)
+        submitting -> sto inviando una recensione?
+        submitError-> errore in fase di invio
+
+   componentDidUpdate(prevProps): siccome il modal resta montato anche da
+   chiuso, non uso componentDidMount. Intercetto l'APERTURA (show passa da
+   false a true) e solo allora carico i dati. E' l'equivalente "legacy" di
+   un useEffect che dipende dalla prop "show".
+
+   Le chiamate usano DUE fonti (i due "metodi" del progetto):
+     - loadDetails(): OMDB, il "sito" -> GET buildDetailUrl(imdbID) per
+       trama/anno/voto. Sono opzionali: se falliscono non blocco le recensioni.
+     - loadReviews(): striveschool, il "bearer" -> GET reviewsUrl(imdbID),
+       con reviewsHeaders() (Authorization: Bearer <token>). Il backend, se
+       il path e' un elementId, restituisce l'ARRAY delle recensioni di quel
+       film. Se manca il token mostro un messaggio chiaro.
+     - handleSubmit(): POST reviewsUrl() con body { comment, rate, elementId }.
+       elementId = imdbID del film. e.preventDefault() evita il reload della
+       pagina; dopo l'invio svuoto il form e ricarico la lista.
+     - handleDelete(id): DELETE reviewsUrl(id) usando l'_id del commento;
+       poi ricarico la lista.
+
+   Il form usa INPUT CONTROLLATI: il valore delle caselle vive nello stato
+   React (comment, rate) e onChange lo aggiorna. Il voto e' reso con stelle
+   piene/vuote (solo testo, nessun HTML: sicuro da XSS come il resto).
+   renderReviews() sceglie cosa mostrare con "if" (loading / errore / lista
+   vuota / lista piena), senza operatori ternari.
+
+>>> src/components/Loader.jsx
+   - Semplice spinner (di react-bootstrap) con la scritta "Caricamento...".
+     Mostrato mentre la galleria aspetta la risposta di OMDB.
+
+>>> src/components/ErrorAlert.jsx
+   - Riquadro rosso (Alert di react-bootstrap) con il messaggio d'errore e
+     un bottone "Riprova" che rifa' la chiamata.
+
+
+--------------------------------------------------------------------
+4. GESTIONE DEL CARICAMENTO E DEGLI ERRORI (l'EXTRA)
+--------------------------------------------------------------------
+Ogni galleria attraversa sempre uno di questi tre stati:
+   CARICAMENTO -> mostra lo spinner (Loader);
+   ERRORE      -> mostra il messaggio rosso con "Riprova" (ErrorAlert);
+   SUCCESSO    -> mostra i poster (MovieCard).
+
+Casi di errore gestiti:
+   - apikey OMDB non configurata (messaggio che invita a inserirla);
+   - errore di rete / risposta HTTP non ok;
+   - apikey errata o nessun risultato (Response: "False" da OMDB).
+
+Anche il MODAL RECENSIONI segue lo stesso schema (loader / errore / lista) e
+riusa gli stessi componenti <Loader/> e <ErrorAlert/>. Casi gestiti in piu':
+   - bearer mancante (messaggio che invita a mettere VITE_STRIVE_BEARER in .env);
+   - errore in invio (POST) o eliminazione (DELETE) di una recensione.
+
+
+--------------------------------------------------------------------
+5. SICUREZZA (XSS)
+--------------------------------------------------------------------
+Non viene mai usato innerHTML ne' dangerouslySetInnerHTML. In React tutto
+il testo mostrato con { ... } viene automaticamente "sanificato" (escape),
+quindi anche i dati che arrivano da OMDB (titoli, messaggi d'errore) e dalle
+recensioni scritte dagli utenti (testo, autore) non possono iniettare codice
+HTML/JS malevolo nella pagina.
+
+
+--------------------------------------------------------------------
+6. PERCHE' I CLASS COMPONENT
+--------------------------------------------------------------------
+E' una richiesta didattica: imparare il modo "classico" (pre-2019) di
+scrivere React. Corrispondenze con gli hook moderni:
+   - lo stato: this.state + this.setState()      (al posto di useState)
+   - il fetch iniziale: componentDidMount()       (al posto di useEffect [])
+   - reagire al cambio di una prop: componentDidUpdate(prevProps)
+     (al posto di useEffect con quella prop tra le dipendenze) -> lo uso nel
+     modal per caricare i dati quando "show" passa da false a true.
+Il funzionamento e' identico, cambia solo la sintassi.
+
+
+--------------------------------------------------------------------
+7. COME AGGIUNGERE UNA NUOVA GALLERIA
+--------------------------------------------------------------------
+Basta aggiungere una riga all'array GALLERIES in src/config.jsx, per es.:
+
+   { title: "New Releases", query: "Jurassic Park" }
+
+Non serve toccare altro: <App/> creera' automaticamente la nuova galleria
+e lei si occupera' da sola del fetch, del loader e degli errori.
