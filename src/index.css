@@ -13,7 +13,8 @@ a {
 /* ===== Navbar ===== */
 .netflix-navbar {
   background-color: #000000;
-  padding: 0.6rem 1.5rem;
+  padding: 0.9rem 1.8rem; /* leggermente più alta e con più respiro ai lati */
+  font-size: 1.05rem;     /* link un filo più grandi */
 }
 
 /* Logo NETFLIX in rosso e in grassetto */
@@ -21,15 +22,30 @@ a {
   color: #e50914 !important;
   font-weight: 800;
   letter-spacing: 1px;
+  font-size: 1.7rem; /* logo più grande in proporzione alla navbar */
 }
 
-/* Avatar profilo: quadratino colorato come su Netflix */
+/* Avatar profilo: foto tonda dell'utente */
 .profile-avatar {
-  display: inline-block;
-  width: 28px;
-  height: 28px;
-  border-radius: 4px;
-  background: linear-gradient(135deg, #e50914, #b1060f);
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover; /* ritaglia l'immagine mantenendo le proporzioni */
+}
+
+/* Bottone attorno all'avatar: azzero lo stile nativo così sembra solo la foto */
+.profile-btn {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  line-height: 0;
+  cursor: pointer;
+}
+
+/* Foto profilo ingrandita dentro la modale */
+.profile-modal-img {
+  max-width: 100%;
+  border-radius: 8px;
 }
 
 .netflix-nav-right {
