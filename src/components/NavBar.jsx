@@ -1,5 +1,6 @@
 import { Component } from 'react'
 import { Navbar, Nav, Container } from 'react-bootstrap'
+import SearchBar from './SearchBar'
 
 // Link principali della navbar Netflix.
 // Array + map per non ripetere lo stesso markup 5 volte.
@@ -23,9 +24,10 @@ class NavBar extends Component {
               ))}
             </Nav>
 
-            {/* Icone a destra: ricerca, KIDS, notifiche, profilo (statiche) */}
+            {/* Icone a destra: ricerca funzionante, KIDS, notifiche, profilo */}
             <Nav className="align-items-center gap-3 netflix-nav-right">
-              <span aria-label="Cerca" role="img">🔍</span>
+              {/* La ricerca vera: la SearchBar richiama onSearch ricevuto da App */}
+              <SearchBar onSearch={this.props.onSearch} />
               <span className="fw-bold">KIDS</span>
               <span aria-label="Notifiche" role="img">🔔</span>
               <span className="profile-avatar" aria-label="Profilo" />

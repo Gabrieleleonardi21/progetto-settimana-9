@@ -25,6 +25,18 @@
   font-size: 0.85rem;
 }
 
+/* Campo di ricerca nella navbar: sfondo scuro coerente col tema Netflix */
+.search-bar .form-control {
+  width: 180px;
+  background: #000000;
+  color: #ffffff;
+  border: 1px solid #555555;
+}
+
+.search-bar .form-control::placeholder {
+  color: #999999;
+}
+
 /* ===== Galleria ===== */
 .gallery {
   margin-bottom: 2rem;
