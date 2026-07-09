@@ -25,8 +25,8 @@ mostra i dettagli del film (presi da OMDB) e le recensioni degli utenti,
 che si possono leggere, aggiungere ed eliminare. Le recensioni stanno su un
 secondo backend (striveschool) e richiedono un token "bearer".
 
-Requisito importante del corso: usare i CLASS COMPONENT (codice "legacy"),
-quindi NON sono stati usati gli hook (niente useState / useEffect).
+L'app e' scritta interamente con FUNCTION COMPONENT e HOOK: useState per lo
+stato, useEffect per il caricamento dei dati. Nessun class component.
 
 
 --------------------------------------------------------------------
@@ -36,7 +36,7 @@ quindi NON sono stati usati gli hook (niente useState / useEffect).
 2) main.jsx monta il componente <App/> dentro la pagina HTML.
 3) <App/> disegna NavBar + Footer + una <MovieGallery/> per ogni saga
    elencata in config.jsx (GALLERIES).
-4) Ogni <MovieGallery/> appena "nasce" (componentDidMount) chiama OMDB
+4) Ogni <MovieGallery/> appena "nasce" (useEffect) chiama OMDB
    chiedendo i film di quella saga.
 5) Mentre aspetta la risposta mostra il Loader (spinner).
 6) Quando la risposta arriva:
@@ -48,8 +48,8 @@ dati e il suo eventuale errore. Se una fallisce, le altre continuano a
 funzionare.
 
 Flusso del MODAL RECENSIONI (quando clicchi un poster):
-  a) La MovieCard cliccata apre il suo <ReviewModal/> (mette showModal=true).
-  b) All'apertura il modal fa DUE chiamate in parallelo:
+  a) La MovieCard cliccata MONTA il suo <ReviewModal/> (mette showModal=true).
+  b) Appena montato il modal fa DUE chiamate in parallelo:
        - a OMDB (il "sito"): GET ?i=<imdbID> per i dettagli del film;
        - a striveschool (col bearer): GET /comments/<imdbID> per le recensioni.
   c) Mostra i dettagli + la lista recensioni (o loader/errore).
@@ -118,39 +118,48 @@ Flusso del MODAL RECENSIONI (quando clicchi un poster):
      doppio map: zero markup ripetuto.
 
 >>> src/components/MovieGallery.jsx  (IL CUORE DELL'APP)
-   Questo e' l'unico componente con uno STATO, perche' deve ricordare cosa
-   sta succedendo. Lo stato ha 3 informazioni:
+   E' il componente con lo stato piu' "ricco", perche' deve ricordare cosa
+   sta succedendo. Ogni informazione ha il suo useState:
         movies  -> l'elenco dei film ricevuti (all'inizio vuoto)
         loading -> true mentre sta scaricando
         error   -> testo dell'errore (vuoto se tutto ok)
+        attempt -> contatore dei tentativi, serve al bottone "Riprova"
 
-   componentDidMount(): metodo "di ciclo di vita" di React. Viene eseguito
-   UNA volta sola, subito dopo che il componente compare a schermo. E' il
-   posto giusto (con i class component) per lanciare il fetch iniziale.
-   E' l'equivalente "legacy" di useEffect(..., []).
+   useEffect(..., [query, attempt]): l'hook che sostituisce il vecchio
+   componentDidMount. React lo esegue dopo il primo render e lo RIPETE ogni
+   volta che cambia una delle dipendenze tra parentesi quadre:
+        - cambia "query"   -> e' una nuova ricerca, riscarico;
+        - cambia "attempt" -> l'utente ha cliccato "Riprova", riscarico.
+   Il fetch sta DENTRO l'effect: e' li' che React vuole gli "effetti
+   collaterali" (chiamate di rete, timer, sottoscrizioni).
 
-   fetchMovies(): la funzione che scarica i dati. Passi:
-        1. Mette loading = true e azzera l'errore.
-        2. Controlla che la apikey sia stata configurata: se manca, mostra
-           subito un messaggio chiaro invece di fare una chiamata inutile.
-        3. Fa la fetch verso OMDB (await) e legge subito il JSON.
-        4. OMDB, quando qualcosa non va (apikey errata o nessun risultato),
+   scaricaFilm(): la funzione (definita dentro l'effect) che scarica i dati:
+        1. Controlla che la apikey sia stata configurata: se manca, lancia
+           subito un errore chiaro invece di fare una chiamata inutile.
+        2. Fa la fetch verso OMDB (await) e legge subito il JSON.
+        3. OMDB, quando qualcosa non va (apikey errata o nessun risultato),
            risponde con { Response: "False", Error: "..." } E METTE l'errore
            nel corpo JSON anche quando lo status HTTP e' 401. Per questo
            controllo PRIMA data.Response: cosi' mostro il messaggio esatto
            di OMDB (es. "Invalid API key!") invece di un generico "401".
-        5. Solo dopo controllo response.ok, per intercettare altri problemi
+        4. Solo dopo controllo response.ok, per intercettare altri problemi
            HTTP che non seguono il formato di OMDB (fetch non lancia da solo
            sugli errori HTTP, va controllato a mano).
-        6. IMPORTANTE: l'elenco dei film NON e' la risposta stessa, ma sta
+        5. IMPORTANTE: l'elenco dei film NON e' la risposta stessa, ma sta
            dentro la proprieta' "Search" (data.Search). E' scritto anche
            nelle slide del progetto. Salvo quell'array in movies.
-        7. Tutto e' dentro try/catch: qualsiasi problema (rete, JSON, API)
+        6. Tutto e' dentro try/catch: qualsiasi problema (rete, JSON, API)
            viene catturato e mostrato all'utente in "error".
 
-   handleRetry(): richiama fetchMovies(). E' scritta come arrow function
-   (class field) cosi' "this" resta legato al componente anche quando la
-   passo al bottone "Riprova" del componente ErrorAlert.
+   Il flag "annullato" e la funzione di cleanup (il return dell'effect):
+   se la galleria sparisce dallo schermo, o se il fetch riparte prima che
+   la risposta vecchia sia arrivata, quella risposta viene IGNORATA. Senza
+   questo controllo una risposta lenta potrebbe sovrascrivere una recente.
+
+   handleRetry(): e' un gestore di evento (il click su "Riprova"), quindi
+   puo' aggiornare lo stato liberamente: rimette il loader, pulisce l'errore
+   e incrementa "attempt". Cambiando "attempt" cambia una dipendenza
+   dell'useEffect, e React rilancia da solo il fetch.
 
    renderContent(): decide COSA mostrare in base allo stato:
         - se loading  -> il <Loader/>
@@ -164,44 +173,50 @@ Flusso del MODAL RECENSIONI (quando clicchi un poster):
    - A volte OMDB non ha il poster e restituisce Poster === "N/A": in quel
      caso, invece dell'immagine rotta, mostro un riquadro grigio con il
      titolo del film.
-   - E' CLICCABILE: ha un piccolo stato locale (showModal) e al click apre
-     il proprio <ReviewModal/>. Il modal resta sempre montato ma parte
-     chiuso; openModal/closeModal ne cambiano solo la visibilita'.
+   - E' CLICCABILE: ha un piccolo stato locale (showModal, con useState) e
+     al click MONTA il proprio <ReviewModal/> ({showModal && <ReviewModal/>}).
+     Alla chiusura il modal viene smontato e il suo stato buttato via: cosi'
+     alla riapertura i dati si ricaricano freschi, e non ci sono decine di
+     modal nascosti nel DOM (uno per ogni poster della pagina).
 
 >>> src/components/ReviewModal.jsx  (IL MODAL RECENSIONI - progetto W9)
    Finestra che si sovrappone alla pagina (Modal di react-bootstrap) con i
-   dettagli del film e le sue recensioni. Ha uno stato ricco:
-        reviews    -> le recensioni ricevute
-        loading    -> sto caricando le recensioni?
-        error      -> errore di caricamento
-        details    -> dettagli del film presi da OMDB (opzionali)
-        comment    -> testo del form (input controllato)
-        rate       -> voto scelto nel form (1..5)
-        submitting -> sto inviando una recensione?
-        submitError-> errore in fase di invio
+   dettagli del film e le sue recensioni. Il suo stato (uno useState a testa):
+        reviews -> le recensioni ricevute
+        loading -> sto caricando le recensioni?
+        error   -> errore di caricamento
+        details -> dettagli del film presi da OMDB (opzionali)
+        attempt -> contatore che fa ripartire il caricamento delle recensioni
 
-   componentDidUpdate(prevProps): siccome il modal resta montato anche da
-   chiuso, non uso componentDidMount. Intercetto l'APERTURA (show passa da
-   false a true) e solo allora carico i dati. E' l'equivalente "legacy" di
-   un useEffect che dipende dalla prop "show".
-
-   Le chiamate usano DUE fonti (i due "metodi" del progetto):
-     - loadDetails(): OMDB, il "sito" -> GET buildDetailUrl(imdbID) per
+   Siccome il modal viene montato solo quando si apre (vedi MovieCard), qui
+   bastano due useEffect "al montaggio", uno per fonte di dati. Sono separati
+   apposta: cosi' il "Riprova" delle recensioni non rifa' anche la chiamata
+   dei dettagli.
+     - useEffect [imdbID]: OMDB, il "sito" -> GET buildDetailUrl(imdbID) per
        trama/anno/voto. Sono opzionali: se falliscono non blocco le recensioni.
-     - loadReviews(): striveschool, il "bearer" -> GET reviewsUrl(imdbID),
-       con reviewsHeaders() (Authorization: Bearer <token>). Il backend, se
-       il path e' un elementId, restituisce l'ARRAY delle recensioni di quel
-       film. Se manca il token mostro un messaggio chiaro.
-     - handleSubmit(): POST reviewsUrl() con body { comment, rate, elementId }.
-       elementId = imdbID del film. e.preventDefault() evita il reload della
-       pagina; dopo l'invio svuoto il form e ricarico la lista.
-     - handleDelete(id): DELETE reviewsUrl(id) usando l'_id del commento;
-       poi ricarico la lista.
+     - useEffect [imdbID, attempt]: striveschool, il "bearer" -> GET
+       reviewsUrl(imdbID), con reviewsHeaders() (Authorization: Bearer <token>).
+       Il backend, se il path e' un elementId, restituisce l'ARRAY delle
+       recensioni di quel film. Se manca il token mostro un messaggio chiaro.
+   Entrambi hanno il flag "annullato" nel cleanup: se il modal si chiude
+   prima che la risposta arrivi, il risultato viene ignorato.
+
+   ricaricaRecensioni(): rimette il loader, pulisce l'errore e incrementa
+   "attempt". Essendo "attempt" una dipendenza dell'effect, React rilancia
+   da solo il GET. La chiamano il "Riprova", l'invio e l'eliminazione.
+
+   handleDelete(id): DELETE reviewsUrl(id) usando l'_id del commento; se va
+   a buon fine chiama ricaricaRecensioni().
+
+   L'invio di una nuova recensione sta in ReviewForm (POST reviewsUrl() con
+   body { comment, rate, elementId }, dove elementId = imdbID del film).
+   e.preventDefault() evita il reload della pagina; dopo l'invio il form si
+   svuota e avvisa il modal con onAdded() perche' ricarichi la lista.
 
    Il form usa INPUT CONTROLLATI: il valore delle caselle vive nello stato
    React (comment, rate) e onChange lo aggiorna. Il voto e' reso con stelle
    piene/vuote (solo testo, nessun HTML: sicuro da XSS come il resto).
-   renderReviews() sceglie cosa mostrare con "if" (loading / errore / lista
+   ReviewList sceglie cosa mostrare con "if" (loading / errore / lista
    vuota / lista piena), senza operatori ternari.
 
 >>> src/components/Loader.jsx
@@ -243,16 +258,39 @@ HTML/JS malevolo nella pagina.
 
 
 --------------------------------------------------------------------
-6. PERCHE' I CLASS COMPONENT
+6. DAI CLASS COMPONENT AGLI HOOK
 --------------------------------------------------------------------
-E' una richiesta didattica: imparare il modo "classico" (pre-2019) di
-scrivere React. Corrispondenze con gli hook moderni:
-   - lo stato: this.state + this.setState()      (al posto di useState)
-   - il fetch iniziale: componentDidMount()       (al posto di useEffect [])
-   - reagire al cambio di una prop: componentDidUpdate(prevProps)
-     (al posto di useEffect con quella prop tra le dipendenze) -> lo uso nel
-     modal per caricare i dati quando "show" passa da false a true.
-Il funzionamento e' identico, cambia solo la sintassi.
+Il progetto nasceva con i class component (il modo "classico", pre-2019) ed
+e' stato riscritto con function component + hook, il modo consigliato oggi.
+Le corrispondenze, se hai visto la versione vecchia:
+
+   PRIMA (class)                        ORA (hook)
+   ------------------------------------ ------------------------------------
+   class X extends Component            function X({ ... })
+   this.props.title                     si destruttura nella firma: { title }
+   this.state = { movies: [] }          const [movies, setMovies] = useState([])
+   this.setState({ movies: lista })     setMovies(lista)
+   componentDidMount()                  useEffect(() => {...}, [])
+   componentDidUpdate(prevProps)        useEffect(() => {...}, [prop])
+   render() { return ... }              return ... (direttamente)
+
+Due cose che gli hook fanno meglio dei class component:
+
+  1) Le DIPENDENZE dell'useEffect. Invece di scrivere a mano "se la prop e'
+     cambiata allora ricarica" (il vecchio componentDidUpdate con il
+     confronto su prevProps), elenchi da cosa dipende l'effetto e React lo
+     rilancia da solo. Da qui il contatore "attempt": incrementarlo e' il
+     modo di dire "rifai il fetch" senza chiamare la funzione a mano.
+
+  2) Il CLEANUP. L'useEffect puo' restituire una funzione che React esegue
+     quando il componente sparisce (o prima di rilanciare l'effetto). La uso
+     per il flag "annullato": se una risposta di rete arriva quando ormai il
+     componente non c'e' piu', viene ignorata invece di finire nello stato.
+
+Nota sull'ordine: dentro un effect NON si aggiorna lo stato in modo sincrono
+(farebbe render a cascata, e il linter lo segnala). Per questo il loader si
+attiva nel gestore del click ("Riprova"), mentre l'effect scrive lo stato
+solo DOPO l'await, cioe' quando la risposta e' davvero arrivata.
 
 
 --------------------------------------------------------------------

@@ -1,6 +1,6 @@
 # Netflix in React 🎬
 
-Clone della home page di Netflix costruito in **React** con **class component** (niente hook) e stile **Bootstrap / react-bootstrap**. I film vengono scaricati in tempo reale dalle **API di OMDB** (The Open Movie Database) e ogni film ha un **modal recensioni** collegato al backend **striveschool** (progetto progressivo W9).
+Clone della home page di Netflix costruito in **React** con **function component e hook** (`useState`, `useEffect`) e stile **Bootstrap / react-bootstrap**. I film vengono scaricati in tempo reale dalle **API di OMDB** (The Open Movie Database) e ogni film ha un **modal recensioni** collegato al backend **striveschool** (progetto progressivo W9).
 
 Progetto della "Settimana 9" — EPICODE.
 
@@ -10,10 +10,10 @@ Progetto della "Settimana 9" — EPICODE.
 
 - ✅ Interfaccia della home Netflix ricreata con componenti React: **NavBar**, **Footer**, header di pagina.
 - ✅ **3 gallerie**, ognuna con una saga diversa: *Harry Potter*, *Lord of the Rings*, *Star Wars*.
-- ✅ Ogni galleria fa il **fetch da OMDB al caricamento** del componente (`componentDidMount`).
+- ✅ Ogni galleria fa il **fetch da OMDB al caricamento** del componente (`useEffect`).
 - ✅ **[EXTRA] Loader** durante il caricamento e **gestione errori** con messaggio + bottone "Riprova".
 - ✅ **[W9 progressivo] Modal recensioni**: click sul poster → dettagli film da OMDB (`?i=imdbID`) + recensioni dal backend striveschool (GET/POST/DELETE col bearer).
-- ✅ Solo **class component** (nessun hook), come richiesto.
+- ✅ Solo **function component con hook** (`useState`, `useEffect`): nessun class component.
 - ✅ Codice **sicuro da XSS**: nessun `innerHTML`/`dangerouslySetInnerHTML`, React fa l'escape del testo.
 
 ---
@@ -88,7 +88,7 @@ Vuoi la spiegazione dettagliata della logica? È in [`SPIEGAZIONE.txt`](SPIEGAZI
 
 ## 🛠️ Tecnologie
 
-- [React 19](https://react.dev/) (class component)
+- [React 19](https://react.dev/) (function component + hook)
 - [Vite](https://vite.dev/) (build tool e dev server)
 - [Bootstrap 5](https://getbootstrap.com/) + [react-bootstrap](https://react-bootstrap.github.io/)
 - [OMDB API](https://www.omdbapi.com/)

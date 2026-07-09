@@ -1,4 +1,4 @@
-import { Component } from 'react'
+import { useState } from 'react'
 import './App.css'
 import NavBar from './components/NavBar'
 import Footer from './components/Footer'
@@ -8,24 +8,20 @@ import { GALLERIES } from './config'
 // Componente radice: assembla navbar + contenuto (le gallerie) + footer.
 // Tiene lo stato della ricerca: la SearchBar (dentro la NavBar) la aggiorna,
 // e il corpo mostra i risultati oppure le gallerie di default (array GALLERIES).
-class App extends Component {
-  state = {
-    search: "", // termine di ricerca attivo ("" = mostro le gallerie di default)
-  }
-
-  // Riceve il termine dalla SearchBar (via NavBar) e aggiorna lo stato.
-  handleSearch = (term) => this.setState({ search: term })
+function App() {
+  // Termine di ricerca attivo ("" = mostro le gallerie di default).
+  // setSearch si passa direttamente alla NavBar: riceve già il termine come unico argomento.
+  const [search, setSearch] = useState("")
 
   // Cosa mostrare nel corpo: risultati di ricerca oppure gallerie di default (senza ternario).
-  renderGalleries() {
-    if (this.state.search) {
-      // key = termine cercato: cambiandolo la MovieGallery si RIMONTA e rifà il fetch
-      // (scarica i film solo in componentDidMount, quindi il remount è ciò che serve).
+  function renderGalleries() {
+    if (search) {
+      // key = termine cercato: cambiandolo la MovieGallery riparte da zero (stato pulito).
       return (
         <MovieGallery
-          key={this.state.search}
-          title={'Risultati per "' + this.state.search + '"'}
-          query={this.state.search}
+          key={search}
+          title={'Risultati per "' + search + '"'}
+          query={search}
         />
       )
     }
@@ -35,27 +31,25 @@ class App extends Component {
     ))
   }
 
-  render() {
-    return (
-      <>
-        <NavBar onSearch={this.handleSearch} />
+  return (
+    <>
+      <NavBar onSearch={setSearch} />
 
-        <main className="main-content">
-          {/* Intestazione della pagina */}
-          <div className="page-header">
-            <h1 className="page-title">TV Shows</h1>
-            <select className="genres-select" aria-label="Generi">
-              <option>Genres</option>
-            </select>
-          </div>
+      <main className="main-content">
+        {/* Intestazione della pagina */}
+        <div className="page-header">
+          <h1 className="page-title">TV Shows</h1>
+          <select className="genres-select" aria-label="Generi">
+            <option>Genres</option>
+          </select>
+        </div>
 
-          {this.renderGalleries()}
-        </main>
+        {renderGalleries()}
+      </main>
 
-        <Footer />
-      </>
-    )
-  }
+      <Footer />
+    </>
+  )
 }
 
 export default App
