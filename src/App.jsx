@@ -5,14 +5,17 @@ import NavBar from './components/NavBar'
 import Footer from './components/Footer'
 import CatalogPage from './components/CatalogPage'
 import ReviewSection from './components/ReviewSection'
+import { GALLERIES, TV_GALLERIES } from './config'
 
 // Le tre pagine del sito. Sono lo STESSO componente (CatalogPage) con props diversi:
 // cambia il tipo di contenuto chiesto a OMDB, non la logica. Array + map per non
 // ripetere tre volte lo stesso <Route>.
+// "gallerie" decide quante file mostra la pagina: Home e Movies hanno una fila per
+// saga, TV Shows una sola fila che unisce serie di generi diversi.
 const PAGINE = [
-  { path: "/", titolo: "Home", type: "", basePath: "" },
-  { path: "/tv-shows", titolo: "TV Shows", type: "series", basePath: "/tv-shows" },
-  { path: "/movies", titolo: "Movies", type: "movie", basePath: "/movies" },
+  { path: "/", titolo: "Home", type: "", basePath: "", gallerie: GALLERIES },
+  { path: "/tv-shows", titolo: "TV Shows", type: "series", basePath: "/tv-shows", gallerie: TV_GALLERIES },
+  { path: "/movies", titolo: "Movies", type: "movie", basePath: "/movies", gallerie: GALLERIES },
 ]
 
 // Componente radice: navbar + le rotte + footer.
@@ -39,6 +42,7 @@ function App() {
                 titolo={pagina.titolo}
                 type={pagina.type}
                 basePath={pagina.basePath}
+                gallerie={pagina.gallerie}
                 search={search}
                 genre={genre}
               />

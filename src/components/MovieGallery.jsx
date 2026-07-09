@@ -19,7 +19,36 @@ async function scaricaGenere(imdbID) {
   }
 }
 
-// Galleria di una saga di film. Riceve dai props "title" (sezione) e "query" (ricerca OMDB).
+// Esegue UNA ricerca su OMDB e restituisce l'array dei risultati (proprieta' "Search").
+// Estratta dal componente perche' ora la stessa galleria puo' lanciarne piu' di una.
+async function cercaFilm(query, type) {
+  const response = await fetch(buildSearchUrl(query, type))
+  const data = await response.json()
+
+  // "Movie not found!" NON e' un errore: e' una ricerca senza risultati, e capita
+  // spesso filtrando per tipo (es. una saga senza serie TV). Torno una lista vuota,
+  // cosi' una ricerca a vuoto non fa cadere le altre della stessa fila.
+  if (data.Response === "False" && String(data.Error).includes("not found")) {
+    return []
+  }
+
+  // OMDB mette gli errori veri (apikey errata) DENTRO il JSON, con Response === "False",
+  // anche quando lo status HTTP è 401. Lo controllo prima di response.ok così mostro
+  // il messaggio esatto di OMDB (es. "Invalid API key!") e non un generico "401".
+  if (data.Response === "False") {
+    throw new Error(data.Error || "Nessun film trovato")
+  }
+  // Altri problemi HTTP che non seguono il formato OMDB (fetch non lancia da solo).
+  if (!response.ok) {
+    throw new Error("Errore di rete (" + response.status + ")")
+  }
+
+  return data.Search
+}
+
+// Galleria di film. Riceve dai props "title" (sezione) e "query" (ricerca OMDB):
+// "query" e' una stringa (una saga) oppure un array di stringhe, e in quel caso la
+// galleria unisce i risultati di tutte le ricerche in un'unica fila.
 // "type" e' il filtro OMDB sul tipo ("movie" / "series" / "" = tutti): cambia la ricerca.
 // "genre" filtra i film gia' scaricati; "basePath" e "selectedId" servono alle MovieCard
 // per costruire il link della rotta del film.
@@ -32,8 +61,13 @@ function MovieGallery({ title, query, type, genre, basePath, selectedId }) {
   // dipendenza dell'useEffect, fa ripartire il fetch.
   const [attempt, setAttempt] = useState(0)
 
-  // Gira dopo il primo render e ogni volta che cambia la ricerca ("query"), il tipo
-  // di contenuto ("type", cioe' la pagina) o "attempt" (click su "Riprova").
+  // "query" puo' essere una stringa o un array: lo riduco sempre a una stringa sola,
+  // separata da "|". Cosi' l'useEffect ha una dipendenza STABILE: un array, essendo un
+  // oggetto, sarebbe "diverso" a ogni render e farebbe ripartire il fetch all'infinito.
+  const chiaveQuery = [].concat(query).join("|")
+
+  // Gira dopo il primo render e ogni volta che cambiano le ricerche ("chiaveQuery"), il
+  // tipo di contenuto ("type", cioe' la pagina) o "attempt" (click su "Riprova").
   // NON dipende da "genre": quel filtro lavora sui film gia' in memoria, senza rete.
   useEffect(() => {
     // Flag di cleanup: se la galleria sparisce o riparte il fetch prima della risposta,
@@ -47,34 +81,26 @@ function MovieGallery({ title, query, type, genre, basePath, selectedId }) {
           throw new Error("Apikey OMDB mancante: registrati su omdbapi.com e mettila in .env (VITE_OMDB_API_KEY)")
         }
 
-        const response = await fetch(buildSearchUrl(query, type))
-        const data = await response.json()
+        // Una ricerca per ogni query, tutte in parallelo (Promise.all): l'attesa e' quella
+        // della piu' lenta, non la somma. Con una query sola l'array ha un elemento solo.
+        const risultati = await Promise.all(
+          chiaveQuery.split("|").map((singola) => cercaFilm(singola, type))
+        )
 
-        // "Movie not found!" NON e' un errore: e' una ricerca senza risultati, e capita
-        // spesso filtrando per tipo (es. una saga senza serie TV). Mostro la galleria vuota.
-        if (data.Response === "False" && String(data.Error).includes("not found")) {
-          if (annullato) return
-          setMovies([])
-          setLoading(false)
-          return
-        }
+        // Ricerche diverse possono restituire lo stesso titolo (es. uno spin-off comune):
+        // unisco le liste e tengo solo la prima occorrenza di ogni imdbID, altrimenti la
+        // fila mostrerebbe doppioni e React si lamenterebbe delle "key" ripetute.
+        const visti = new Set()
+        const unici = risultati.flat().filter((movie) => {
+          if (visti.has(movie.imdbID)) return false
+          visti.add(movie.imdbID)
+          return true
+        })
 
-        // OMDB mette gli errori veri (apikey errata) DENTRO il JSON, con Response === "False",
-        // anche quando lo status HTTP è 401. Lo controllo prima di response.ok così mostro
-        // il messaggio esatto di OMDB (es. "Invalid API key!") e non un generico "401".
-        if (data.Response === "False") {
-          throw new Error(data.Error || "Nessun film trovato")
-        }
-        // Altri problemi HTTP che non seguono il formato OMDB (fetch non lancia da solo).
-        if (!response.ok) {
-          throw new Error("Errore di rete (" + response.status + ")")
-        }
-
-        // L'array dei film è nella proprietà "Search", non nella risposta stessa.
-        // Scarto subito i film che OMDB dichiara senza locandina (Poster === "N/A"):
+        // Scarto i film che OMDB dichiara senza locandina (Poster === "N/A"):
         // una galleria di riquadri grigi non serve a nessuno. Filtrando PRIMA di chiedere
         // i generi risparmio anche le loro richieste di dettaglio.
-        const conLocandina = data.Search.filter((movie) => movie.Poster !== "N/A")
+        const conLocandina = unici.filter((movie) => movie.Poster !== "N/A")
 
         // Arricchisco ogni film col suo genere: Promise.all lancia le richieste TUTTE INSIEME,
         // non una dopo l'altra, quindi l'attesa e' quella della piu' lenta, non la somma.
@@ -94,7 +120,7 @@ function MovieGallery({ title, query, type, genre, basePath, selectedId }) {
 
     scaricaFilm()
     return () => { annullato = true }
-  }, [query, type, attempt])
+  }, [chiaveQuery, type, attempt])
 
   // Il click su "Riprova" è un evento utente: qui posso aggiornare lo stato liberamente.
   function handleRetry() {
@@ -125,10 +151,10 @@ function MovieGallery({ title, query, type, genre, basePath, selectedId }) {
     if (error) {
       return <ErrorAlert message={error} onRetry={handleRetry} />
     }
-    // Nessun film utilizzabile: o OMDB non ha restituito niente per questa saga con
+    // Nessun film utilizzabile: o OMDB non ha restituito niente per queste ricerche con
     // questo tipo di contenuto, oppure tutti i risultati erano privi di locandina.
     if (movies.length === 0) {
-      return <p className="text-secondary">Nessun film con locandina per questa saga.</p>
+      return <p className="text-secondary">Nessun film con locandina per questa ricerca.</p>
     }
     // C'erano film, ma il filtro per genere li ha esclusi tutti.
     if (visibili.length === 0) {

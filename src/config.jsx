@@ -80,7 +80,20 @@ export function reviewsUrl(idOrElement = "") {
 // Elenco delle gallerie in home page: titolo della sezione + saga da cercare su OMDB.
 // Almeno 3 gallerie con 3 saghe diverse (requisito del progetto).
 export const GALLERIES = [
+  { title: "Upcoming", query: "Jurassic Park" },
   { title: "Trending Now", query: "Harry Potter" },
   { title: "Watch it Again", query: "Lord of the Rings" },
   { title: "New Releases", query: "Star Wars" },
+]
+
+// Pagina TV Shows: UNA SOLA galleria, quindi una sola fila.
+// "query" e' un ARRAY invece di una stringa: MovieGallery fa una ricerca per ogni voce
+// e fonde i risultati in un'unica riga. Serve perche' OMDB non sa cercare "per genere":
+// l'unico modo di avere generi diversi nella stessa fila e' cercare titoli di ambiti
+// diversi (crime, comedy, mystery, horror, sci-fi) e unire i risultati.
+export const TV_GALLERIES = [
+  {
+    title: "Serie TV",
+    query: ["Breaking Bad", "Friends", "Sherlock", "Stranger Things", "Star Trek"],
+  },
 ];

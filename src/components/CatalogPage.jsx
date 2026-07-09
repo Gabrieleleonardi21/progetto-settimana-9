@@ -1,14 +1,14 @@
 import { Outlet, useMatch } from 'react-router-dom'
 import { Row, Col } from 'react-bootstrap'
 import MovieGallery from './MovieGallery'
-import { GALLERIES } from '../config'
 
 // Pagina di catalogo: la usano TUTTE E TRE le rotte statiche (Home, TV Shows, Movies).
 // Cambiano solo i props, non il componente:
 //   titolo   -> l'intestazione mostrata in cima
 //   type     -> il filtro OMDB sul tipo ("" = tutto, "series", "movie")
 //   basePath -> "" per la home, "/tv-shows" o "/movies": serve a costruire i link dei film
-function CatalogPage({ titolo, type, basePath, search, genre }) {
+//   gallerie -> le file da mostrare (una per elemento): la pagina decide quante sono
+function CatalogPage({ titolo, type, basePath, gallerie, search, genre }) {
   // La rotta del film e' ANNIDATA dentro questa pagina (es. /movies/film/tt0241527).
   // useMatch mi dice se l'indirizzo attuale la combacia: da li' ricavo quale film e' aperto.
   // E' l'indirizzo, non uno useState, a decidere cosa mostrare: il tasto Indietro del
@@ -35,7 +35,7 @@ function CatalogPage({ titolo, type, basePath, search, genre }) {
         />
       )
     }
-    return GALLERIES.map((gallery) => (
+    return gallerie.map((gallery) => (
       <MovieGallery
         key={gallery.title}
         title={gallery.title}
