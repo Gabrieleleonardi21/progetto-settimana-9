@@ -89,3 +89,10 @@ a {
   margin-top: 1rem;
   font-size: 0.8rem;
 }
+
+/* Link della navbar: quello della pagina aperta è più chiaro e in grassetto.
+   react-router aggiunge da solo la classe "active" al NavLink corrispondente. */
+.netflix-navbar .nav-link.active {
+  color: #ffffff;
+  font-weight: 700;
+}

@@ -12,17 +12,41 @@ const OMDB_BASE_URL = "https://www.omdbapi.com/";
 
 // Helper: costruisce l'URL di ricerca per titolo (?s=...).
 // Centralizzato qui per non ripetere la stringa (e la apikey) in ogni componente.
-export function buildSearchUrl(query, page = 1) {
+// "type" e' il filtro NATIVO di OMDB sul tipo di contenuto: "movie", "series" o "episode".
+// Lo usano le pagine Movies e TV Shows. Vuoto = nessun filtro, OMDB restituisce tutto.
+export function buildSearchUrl(query, type = "", page = 1) {
   const params = new URLSearchParams({ apikey: OMDB_API_KEY, s: query, page });
+  if (type) params.set("type", type);
   return OMDB_BASE_URL + "?" + params.toString();
 }
 
 // Helper: URL dei DETTAGLI di un singolo film su OMDB (ricerca per id: ?i=imdbID).
-// Usato nel modal delle recensioni per mostrare trama, anno, voto IMDb.
+// Serve alle gallerie per leggere il GENERE di ogni film: la ricerca (?s=) non lo
+// restituisce, quindi il filtro per categoria non potrebbe funzionare senza questa chiamata.
 export function buildDetailUrl(imdbID) {
   const params = new URLSearchParams({ apikey: OMDB_API_KEY, i: imdbID });
   return OMDB_BASE_URL + "?" + params.toString();
 }
+
+// Generi selezionabili nel filtro della navbar.
+// L'elenco e' FISSO e non ricavato dai risultati: OMDB non espone un elenco di generi,
+// e per conoscere quelli presenti bisognerebbe prima scaricare i dettagli di tutti i film
+// di tutte le gallerie. Questi sono i generi che OMDB usa piu' spesso.
+export const GENRES = [
+  "Action",
+  "Adventure",
+  "Animation",
+  "Comedy",
+  "Crime",
+  "Drama",
+  "Family",
+  "Fantasy",
+  "Horror",
+  "Mystery",
+  "Romance",
+  "Sci-Fi",
+  "Thriller",
+];
 
 // ============================================================
 // API RECENSIONI - backend "striveschool" (progetto progressivo W9)

@@ -1,40 +1,47 @@
 import { useState } from 'react'
-import { Form, Button, Alert } from 'react-bootstrap'
-import { reviewsUrl, reviewsHeaders } from '../config'
+import { Form, Button } from 'react-bootstrap'
+import StarRating from './StarRating'
 
-// Form per aggiungere una recensione. Gestisce da solo lo stato dei campi e l'invio (POST),
-// poi avvisa il genitore con onAdded() perché ricarichi la lista aggiornata dal server.
-// Riceve solo "elementId" (imdbID del film) e la callback "onAdded".
-function ReviewForm({ elementId, onAdded }) {
-  // Uno useState per ogni pezzo di stato: input controllati + stato dell'invio.
-  const [comment, setComment] = useState("")     // testo della recensione
-  const [rate, setRate] = useState("5")          // voto scelto (stringa dalla select)
+// Form per aggiungere una recensione. Gestisce da solo lo stato dei campi e la validazione,
+// poi passa i dati al genitore con onAdd(): e' il genitore (ReviewSection) a fare la POST.
+// Nessun campo "autore": il backend striveschool ricava l'autore dal bearer e ignora
+// un eventuale campo author inviato nel body.
+function ReviewForm({ onAdd }) {
+  // Uno useState per ogni campo: input controllati, lo stato React e' l'unica fonte di verita'.
+  const [rate, setRate] = useState(0)       // 0 = nessun voto scelto
+  const [comment, setComment] = useState("")
+  const [errore, setErrore] = useState("")
   const [submitting, setSubmitting] = useState(false)
-  const [submitError, setSubmitError] = useState("")
 
-  // POST nuova recensione: body { comment, rate, elementId }. elementId = imdbID del film.
   async function handleSubmit(e) {
     e.preventDefault() // evito il reload della pagina causato dal submit del form
-    setSubmitting(true)
-    setSubmitError("")
-    try {
-      const response = await fetch(reviewsUrl(), {
-        method: "POST",
-        headers: reviewsHeaders(),
-        body: JSON.stringify({ comment, rate, elementId }),
-      })
-      if (!response.ok) {
-        throw new Error("Invio non riuscito (" + response.status + ")")
-      }
-      // Svuoto il form e chiedo al genitore di ricaricare la lista aggiornata.
-      setComment("")
-      setRate("5")
-      setSubmitting(false)
-      onAdded()
-    } catch (err) {
-      setSubmitError(err.message)
-      setSubmitting(false)
+
+    // Voto e commento sono obbligatori.
+    if (rate === 0) {
+      setErrore("Seleziona un voto da 1 a 5 stelle.")
+      return
     }
+    if (comment.trim() === "") {
+      setErrore("Scrivi un commento.")
+      return
+    }
+
+    setSubmitting(true)
+    try {
+      // _id, author e createdAt li genera il server: qui invio solo i dati del form.
+      await onAdd({ rate: rate, comment: comment.trim() })
+    } catch {
+      // La POST e' fallita: tengo i dati nel form cosi' l'utente puo' riprovare.
+      setErrore("Invio non riuscito, riprova.")
+      setSubmitting(false)
+      return
+    }
+
+    // Reset del form solo dopo l'invio andato a buon fine.
+    setRate(0)
+    setComment("")
+    setErrore("")
+    setSubmitting(false)
   }
 
   // Etichetta del bottone calcolata senza ternario.
@@ -45,33 +52,27 @@ function ReviewForm({ elementId, onAdded }) {
 
   return (
     <Form onSubmit={handleSubmit}>
-      <Form.Group className="mb-2">
-        <Form.Label className="small">Il tuo voto</Form.Label>
-        <Form.Select value={rate} onChange={(e) => setRate(e.target.value)}>
-          <option value="1">1 - Pessimo</option>
-          <option value="2">2 - Mediocre</option>
-          <option value="3">3 - Sufficiente</option>
-          <option value="4">4 - Buono</option>
-          <option value="5">5 - Ottimo</option>
-        </Form.Select>
-      </Form.Group>
+      <h6>Aggiungi una recensione</h6>
 
       <Form.Group className="mb-2">
-        <Form.Label className="small">La tua recensione</Form.Label>
+        <Form.Label className="mb-1 d-block">Voto</Form.Label>
+        {/* Stesse stelle della lista, ma cliccabili: onSelect le trasforma in input */}
+        <StarRating value={rate} onSelect={setRate} />
+      </Form.Group>
+
+      <Form.Group className="mb-3">
+        <Form.Label className="mb-1">Commento</Form.Label>
         <Form.Control
           as="textarea"
           rows={3}
+          placeholder="Cosa ne pensi del film?"
           value={comment}
           onChange={(e) => setComment(e.target.value)}
-          placeholder="Scrivi qui la tua opinione..."
-          required
         />
       </Form.Group>
 
-      {/* Mostro l'errore di invio solo se presente (&& non è un ternario) */}
-      {submitError && (
-        <Alert variant="danger" className="py-1 px-2 small">{submitError}</Alert>
-      )}
+      {/* Mostro l'errore solo se presente (&& non e' un ternario) */}
+      {errore && <p className="text-danger small">{errore}</p>}
 
       <Button type="submit" variant="danger" disabled={submitting}>
         {submitLabel}

@@ -20,9 +20,10 @@ una saga di film (Harry Potter, Lord of the Rings, Star Wars). I poster NON
 sono scritti a mano: vengono scaricati da internet dalle API di OMDB
 (The Open Movie Database) ogni volta che l'app si carica.
 
-Cliccando un poster si apre un MODAL RECENSIONI (progetto progressivo W9):
-mostra i dettagli del film (presi da OMDB) e le recensioni degli utenti,
-che si possono leggere, aggiungere ed eliminare. Le recensioni stanno su un
+Cliccando un poster si apre un PANNELLO RECENSIONI:
+nella colonna destra della pagina: mostra il titolo del film e le recensioni
+degli utenti, che si possono leggere, aggiungere ed eliminare.
+Un secondo click sullo stesso poster lo richiude. Le recensioni stanno su un
 secondo backend (striveschool) e richiedono un token "bearer".
 
 L'app e' scritta interamente con FUNCTION COMPONENT e HOOK: useState per lo
@@ -34,7 +35,8 @@ stato, useEffect per il caricamento dei dati. Nessun class component.
 --------------------------------------------------------------------
 1) L'utente apre la pagina.
 2) main.jsx monta il componente <App/> dentro la pagina HTML.
-3) <App/> disegna NavBar + Footer + una <MovieGallery/> per ogni saga
+3) <App/> disegna NavBar + Footer, e in mezzo il ROUTER sceglie la pagina in
+   base all'indirizzo. Ogni pagina disegna una <MovieGallery/> per ogni saga
    elencata in config.jsx (GALLERIES).
 4) Ogni <MovieGallery/> appena "nasce" (useEffect) chiama OMDB
    chiedendo i film di quella saga.
@@ -47,14 +49,17 @@ In pratica ogni galleria e' indipendente: ha il suo caricamento, i suoi
 dati e il suo eventuale errore. Se una fallisce, le altre continuano a
 funzionare.
 
-Flusso del MODAL RECENSIONI (quando clicchi un poster):
-  a) La MovieCard cliccata MONTA il suo <ReviewModal/> (mette showModal=true).
-  b) Appena montato il modal fa DUE chiamate in parallelo:
-       - a OMDB (il "sito"): GET ?i=<imdbID> per i dettagli del film;
+Flusso del PANNELLO RECENSIONI (quando clicchi un poster):
+  a) La MovieCard e' un <Link>: il click cambia l'INDIRIZZO (es. /movies/film/tt111).
+     Il router riconosce la rotta annidata e mette <ReviewSection/> nella colonna
+     destra. Nessuno stato: e' l'indirizzo a dire quale film e' aperto.
+  b) Appena montato il pannello fa DUE chiamate in parallelo:
+       - a OMDB (il "sito"): GET ?i=<imdbID> per la descrizione del film;
        - a striveschool (col bearer): GET /comments/<imdbID> per le recensioni.
-  c) Mostra i dettagli + la lista recensioni (o loader/errore).
+  c) Mostra descrizione + voto medio + lista recensioni (o loader/errore).
   d) Dal form puoi inviare una recensione (POST) o eliminarne una (DELETE):
-     dopo ogni operazione la lista viene ricaricata dal server.
+     dopo ogni operazione la lista viene aggiornata in locale, senza
+     riscaricare tutto (la POST restituisce la recensione appena creata).
 
 
 --------------------------------------------------------------------
@@ -69,10 +74,12 @@ Flusso del MODAL RECENSIONI (quando clicchi un poster):
      E' scritto una volta sola qui, cosi' non ripeto stringa e apikey ovunque.
      Esempio: https://www.omdbapi.com/?apikey=XXXX&s=Harry%20Potter&page=1
    - buildDetailUrl(imdbID): helper che costruisce l'URL dei DETTAGLI OMDB
-     (?i=<imdbID>). Lo usa il modal recensioni per trama, anno, voto IMDb.
+     (?i=<imdbID>). Lo usano le GALLERIE per leggere il GENERE di ogni film:
+     la ricerca (?s=) non lo restituisce, e senza genere il filtro non esiste.
+   - GENRES: l'elenco fisso dei generi selezionabili nel filtro della navbar.
    - STRIVE_BEARER: il token JWT fornito, letto da .env (VITE_STRIVE_BEARER).
      NB: NON e' una apikey OMDB, e' un token del backend "striveschool" (le
-     recensioni). Le gallerie NON lo usano: lo usa solo il modal recensioni.
+     recensioni). Le gallerie NON lo usano: lo usa solo il pannello recensioni.
    - reviewsHeaders(): helper che restituisce gli header comuni a TUTTE le
      chiamate recensioni: Content-Type JSON + "Authorization: Bearer <token>".
      Centralizzato cosi' non riscrivo l'header di autenticazione in ogni fetch.
@@ -94,22 +101,77 @@ Flusso del MODAL RECENSIONI (quando clicchi un poster):
 >>> src/main.jsx  (punto di ingresso)
    - Importa il CSS di Bootstrap PRIMA dei nostri stili (cosi' i nostri
      colori "vincono" e sovrascrivono quelli di Bootstrap).
-   - Monta <App/> nel <div id="root"> della pagina.
+   - Monta <App/> nel <div id="root"> della pagina, avvolto in <BrowserRouter>.
+     Il router sta qui e non dentro App: cosi' App resta un normale componente
+     e nei test lo si puo' avvolgere in un router diverso (in memoria).
 
->>> src/App.jsx  (componente radice)
-   - Mette insieme i pezzi: <NavBar/>, il contenuto e <Footer/>.
-   - Genera le gallerie con GALLERIES.map(...): una <MovieGallery/> per
-     ogni voce, passando "title" e "query" tramite le props.
-   - Contiene anche l'intestazione "TV Shows" con la select "Genres".
+>>> src/App.jsx  (componente radice e mappa delle rotte)
+   - Mette insieme i pezzi: <NavBar/>, le rotte e <Footer/>. NavBar e Footer
+     stanno FUORI da <Routes>, quindi restano identici su ogni pagina.
+   - Tiene due stati "elevati": "search" (la barra di ricerca) e "genre" (il
+     filtro categorie). Il film aperto invece NON e' uno stato: sta nell'indirizzo.
+   - PAGINE e' un array di 3 voci (Home, TV Shows, Movies). Un map genera i tre
+     <Route>: sono la STESSA CatalogPage con props diversi, cambia solo il "type"
+     chiesto a OMDB. Aggiungere una pagina = aggiungere una riga all'array.
+   - L'ultima rotta e' path="*": qualsiasi indirizzo inesistente mostra
+     "Pagina non trovata" invece di una schermata bianca.
+
+   LE ROTTE, IN CHIARO
+        /                     Home        tutti i tipi di contenuto
+        /tv-shows             TV Shows    &type=series
+        /movies               Movies      &type=movie
+        /<pagina>/film/:imdbID            apre il pannello recensioni
+        qualsiasi altra cosa              pagina non trovata
+
+   La rotta del film e' ANNIDATA dentro la pagina (e' scritta dentro il <Route>
+   della pagina). Questo significa che /movies/film/tt111 disegna la pagina
+   Movies E il pannello: le gallerie restano visibili a sinistra. Se fosse una
+   rotta separata, aprire un film sostituirebbe tutta la pagina.
+   ":imdbID" e' un SEGNAPOSTO: il valore vero lo mette l'indirizzo, e il pannello
+   lo legge con useParams(). E' questa la "rotta dinamica".
+
+>>> src/components/CatalogPage.jsx  (la pagina, una per tutte)
+   - La usano tutte e tre le rotte statiche. Riceve dai props il titolo, il
+     "type" per OMDB e il "basePath" ("" per la home, "/movies", "/tv-shows").
+   - useMatch(basePath + "/film/:imdbID") le dice se l'indirizzo attuale contiene
+     un film: da li' ricava quale, senza bisogno di uno useState.
+   - <Outlet/> e' il "buco" dove il router infila la rotta annidata, cioe' il
+     pannello recensioni. Lo mette nella colonna destra, che esiste solo quando
+     un film e' aperto (gallerie 12/12 senza pannello, 7/12 con il pannello).
+   - Passa "basePath" al pannello con <Outlet context={...}/>, e gli mette
+     key={imdbID}: cambiando film il pannello si rimonta e riparte dal loader.
 
 >>> src/components/NavBar.jsx
-   - La barra in alto: logo NETFLIX rosso, i link (Home, TV Shows, Movies,
-     Recently Added, My List) e le icone a destra (ricerca, KIDS, campanello,
-     avatar profilo).
-   - I link sono in un array (NAV_LINKS) e disegnati con un map, per non
-     ripetere lo stesso codice 5 volte.
+   - La barra in alto: logo NETFLIX rosso, i link alle pagine (Home, TV Shows,
+     Movies) e a destra il filtro generi, la ricerca, il nome e l'avatar.
+   - I link sono <NavLink> del router: navigano SENZA ricaricare la pagina e si
+     mettono da soli la classe "active" quando l'indirizzo corrisponde (in CSS
+     diventano bianchi e in grassetto).
+   - La Home ha end={true}: senza, "/" risulterebbe attiva su ogni pagina, perche'
+     ogni indirizzo comincia con "/".
+   - I link sono in un array (NAV_LINKS) e disegnati con un map. Non ci sono voci
+     finte: ogni voce porta a una rotta che esiste davvero.
    - Usa i componenti Navbar/Nav di react-bootstrap: gratis ottengo anche
      il menu "hamburger" responsive su schermi piccoli.
+
+>>> src/components/GenreFilter.jsx  (IL FILTRO DELLE CATEGORIE)
+   - E' il <select> nella navbar. Non ha stato: il genere scelto vive in App,
+     qui arrivano il valore corrente e la callback (props "genre" e "onChange").
+   - L'elenco dei generi (GENRES in config.jsx) e' FISSO. Non e' ricavato dai
+     film caricati perche' OMDB non espone un elenco di generi: per conoscere
+     quelli presenti bisognerebbe prima scaricare i dettagli di tutti i film.
+
+   COME FUNZIONA IL FILTRO (e perche' costa)
+   La ricerca OMDB (?s=Harry Potter) restituisce solo titolo, anno e poster:
+   il GENERE non c'e'. Sta nei dettagli del singolo film (?i=<imdbID>).
+   Quindi ogni MovieGallery, dopo la ricerca, chiede i dettagli di OGNI film per
+   leggerne il Genre, con Promise.all (tutte le richieste partono insieme, non
+   una dopo l'altra: l'attesa e' quella della piu' lenta, non la somma).
+   Sono circa 10 richieste per galleria, 30 al caricamento della home. Il piano
+   FREE di OMDB ne concede 1000 al giorno.
+   Il filtro vero e proprio e' poi LOCALE: cambiare genere non fa nessuna
+   richiesta di rete, filtra l'array "movies" gia' in memoria. Genre e' una
+   stringa tipo "Adventure, Family, Fantasy", quindi basta un .includes().
 
 >>> src/components/Footer.jsx
    - Il footer con le 4 colonne di link, il bottone "Service Code" e il
@@ -169,53 +231,89 @@ Flusso del MODAL RECENSIONI (quando clicchi un poster):
      per tenere il codice piu' leggibile.
 
 >>> src/components/MovieCard.jsx
-   - Mostra il poster di un singolo film (l'immagine).
-   - A volte OMDB non ha il poster e restituisce Poster === "N/A": in quel
-     caso, invece dell'immagine rotta, mostro un riquadro grigio con il
-     titolo del film.
-   - E' CLICCABILE: ha un piccolo stato locale (showModal, con useState) e
-     al click MONTA il proprio <ReviewModal/> ({showModal && <ReviewModal/>}).
-     Alla chiusura il modal viene smontato e il suo stato buttato via: cosi'
-     alla riapertura i dati si ricaricano freschi, e non ci sono decine di
-     modal nascosti nel DOM (uno per ogni poster della pagina).
+   - Mostra la locandina di un singolo film. Non ha stato: e' la galleria a
+     decidere quali film esistono.
+   - Le locandine di OMDB deludono in DUE modi diversi, e nessuno dei due deve
+     lasciare un buco nella pagina:
+       1. Poster === "N/A": OMDB dichiara subito di non averla. La galleria
+          scarta questi film gia' in fase di caricamento (vedi MovieGallery).
+       2. Poster con un URL valido che pero' risponde 404: l'immagine non esiste
+          piu' sui server di Amazon. Questo si scopre SOLO provando a caricarla:
+          l'evento onError dell'<img> avvisa la galleria con onPosterError, e il
+          film viene tolto dalla lista.
+     Capita spesso sulle serie TV (/tv-shows), dove escono titoli minori: su
+     "Harry Potter" 10 risultati diventano 6, su "Lord of the Rings" 4 diventano 1.
+   - NON ha stato ed e' un <Link> del router: il click cambia l'indirizzo
+     (basePath + "/film/" + imdbID) e il pannello compare. Se la card e' gia'
+     quella aperta, il link punta alla pagina senza film: quindi fa da interruttore.
+   - Essendo un <Link> diventa un <a href>: si raggiunge con Tab e si apre con
+     Invio, gratis. Con il vecchio <div onClick> non era usabile da tastiera.
+   - Al <Link> allego state={{ title }}: il titolo viaggia con la navigazione, cosi'
+     il pannello lo mostra subito senza richiederlo di nuovo a OMDB.
+   - Quando e' il film aperto si evidenzia con un bordo rosso (movie-card--selected)
+     e aria-current per gli screen reader.
 
->>> src/components/ReviewModal.jsx  (IL MODAL RECENSIONI - progetto W9)
-   Finestra che si sovrappone alla pagina (Modal di react-bootstrap) con i
-   dettagli del film e le sue recensioni. Il suo stato (uno useState a testa):
+>>> src/components/ReviewSection.jsx  (IL PANNELLO RECENSIONI - progetto W9)
+   Pannello nella colonna destra (non e' una modale) con titolo, descrizione del
+   film (da OMDB) e le sue recensioni (da striveschool). E' la ROTTA ANNIDATA /film/:imdbID, quindi non riceve props:
+     - useParams()        -> l'imdbID preso dall'indirizzo
+     - useOutletContext() -> il basePath passato da CatalogPage
+     - useNavigate()      -> per il bottone di chiusura (navigazione da codice)
+     - useLocation()      -> per leggere il titolo allegato al Link della card
+   Se l'indirizzo viene aperto direttamente (link condiviso, refresh) lo state del
+   Link non c'e': in quel caso il titolo lo chiede a OMDB. Il suo stato:
         reviews -> le recensioni ricevute
         loading -> sto caricando le recensioni?
         error   -> errore di caricamento
-        details -> dettagli del film presi da OMDB (opzionali)
         attempt -> contatore che fa ripartire il caricamento delle recensioni
 
-   Siccome il modal viene montato solo quando si apre (vedi MovieCard), qui
-   bastano due useEffect "al montaggio", uno per fonte di dati. Sono separati
-   apposta: cosi' il "Riprova" delle recensioni non rifa' anche la chiamata
-   dei dettagli.
+   ReviewDetails mostra la descrizione: riga "anno - generi - durata", trama e
+   voto IMDb. Niente locandina: e' gia' nella card che ha aperto il pannello, e
+   ripeterla toglierebbe spazio verticale alle recensioni. OMDB riempie i campi
+   che non conosce con la stringa "N/A" (le serie TV spesso non hanno durata):
+   quei campi vengono scartati invece di stampare "N/A" a schermo.
+
+   CatalogPage monta il pannello con key={imdbID}: cambiando film React lo RIMONTA
+   da zero, quindi qui basta un useEffect "al montaggio". Senza quella key il
+   pannello mostrerebbe le recensioni del film precedente mentre carica le nuove.
      - useEffect [imdbID]: OMDB, il "sito" -> GET buildDetailUrl(imdbID) per
        trama/anno/voto. Sono opzionali: se falliscono non blocco le recensioni.
      - useEffect [imdbID, attempt]: striveschool, il "bearer" -> GET
        reviewsUrl(imdbID), con reviewsHeaders() (Authorization: Bearer <token>).
        Il backend, se il path e' un elementId, restituisce l'ARRAY delle
        recensioni di quel film. Se manca il token mostro un messaggio chiaro.
-   Entrambi hanno il flag "annullato" nel cleanup: se il modal si chiude
+   Entrambi hanno il flag "annullato" nel cleanup: se il pannello si chiude
    prima che la risposta arrivi, il risultato viene ignorato.
+
+   In cima al pannello, sopra la lista, c'e' un riepilogo: le stelle del voto
+   MEDIO (mediaVoti) e la scritta "4.2 - 5 recensioni" (labelRecensioni,
+   che evita il plurale sbagliato con una sola recensione).
 
    ricaricaRecensioni(): rimette il loader, pulisce l'errore e incrementa
    "attempt". Essendo "attempt" una dipendenza dell'effect, React rilancia
-   da solo il GET. La chiamano il "Riprova", l'invio e l'eliminazione.
+   da solo il GET. La chiama SOLO il bottone "Riprova".
 
-   handleDelete(id): DELETE reviewsUrl(id) usando l'_id del commento; se va
-   a buon fine chiama ricaricaRecensioni().
+   handleAdd(nuova): POST reviewsUrl() con body { comment, rate, elementId },
+   dove elementId = imdbID del film. Il server risponde con la recensione
+   creata (completa di _id, author e createdAt): la aggiungo in fondo alla
+   lista locale, senza riscaricarle tutte. Se la fetch fallisce l'errore
+   risale a ReviewForm, che avvisa l'utente e NON svuota il form.
 
-   L'invio di una nuova recensione sta in ReviewForm (POST reviewsUrl() con
-   body { comment, rate, elementId }, dove elementId = imdbID del film).
-   e.preventDefault() evita il reload della pagina; dopo l'invio il form si
-   svuota e avvisa il modal con onAdded() perche' ricarichi la lista.
+   handleDelete(id): chiede conferma con window.confirm (l'eliminazione e'
+   irreversibile), poi DELETE reviewsUrl(id) usando l'_id del commento, e
+   toglie la recensione dalla lista locale con un filter.
 
-   Il form usa INPUT CONTROLLATI: il valore delle caselle vive nello stato
-   React (comment, rate) e onChange lo aggiorna. Il voto e' reso con stelle
-   piene/vuote (solo testo, nessun HTML: sicuro da XSS come il resto).
+   Il form (ReviewForm) usa INPUT CONTROLLATI: il valore delle caselle vive
+   nello stato React (comment, rate) e onChange lo aggiorna. Il voto si da'
+   cliccando le stelle: StarRating, se riceve onSelect, disegna 5 <button>
+   invece di 5 <span>, cosi' e' usabile anche da tastiera. Prima di inviare
+   controlla che il voto sia stato scelto e che il commento non sia vuoto.
+
+   NB: il form non chiede il nome. Il backend striveschool ricava l'autore
+   dal bearer e ignora un eventuale campo "author" nel body: un campo del
+   genere sembrerebbe funzionante ma non avrebbe alcun effetto.
+
+   Le stelle sono solo testo (nessun HTML: sicuro da XSS come il resto).
    ReviewList sceglie cosa mostrare con "if" (loading / errore / lista
    vuota / lista piena), senza operatori ternari.
 
@@ -241,7 +339,7 @@ Casi di errore gestiti:
    - errore di rete / risposta HTTP non ok;
    - apikey errata o nessun risultato (Response: "False" da OMDB).
 
-Anche il MODAL RECENSIONI segue lo stesso schema (loader / errore / lista) e
+Anche il PANNELLO RECENSIONI segue lo stesso schema (loader / errore / lista) e
 riusa gli stessi componenti <Loader/> e <ErrorAlert/>. Casi gestiti in piu':
    - bearer mancante (messaggio che invita a mettere VITE_STRIVE_BEARER in .env);
    - errore in invio (POST) o eliminazione (DELETE) di una recensione.
